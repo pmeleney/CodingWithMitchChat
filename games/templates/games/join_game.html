@@ -1,0 +1,13 @@
+{% extends "games/game_base.html"%}
+{% load bootstrap5 %}
+{% load static %}
+{% block pregame %}
+<h1>Hi {{ user.username }}!</h1>
+<h1>You are Joining Game: {{game.slug}}</h1>
+
+  <form method="POST" action="" id="JoinForm">
+    {% csrf_token %}
+    {% bootstrap_form form %}
+    <input type="submit" value="Add to Hat!" class="btn btn-primary btn-large">
+  </form>
+{% endblock %}

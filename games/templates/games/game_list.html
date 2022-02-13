@@ -1,0 +1,42 @@
+{% extends 'games/game_base.html'%}
+
+{% block pregame %}
+<div class="col-md-8">
+	<div class="content">
+		{% if user.is_authenticated %}
+		<h2>
+			Welcome back
+		</h2>
+
+    {% endif %}
+			<h2>Games</h2>
+
+			<p>Welcome to the Games Page! Select a Game to Join!</p>
+	</div>
+	{% if user.is_authenticated %}
+	<a href="{% url 'games:create' %}" class="btn btn-md btn-fill btn-warning"><span class="glyphicon glyphicon-plus-sign"></span> Create New Game!</a>
+	{% endif %}
+</div>
+{% endblock %}
+
+{% block game_content %}
+	<div class="container">
+		{% for game in object_list %}
+		  <div class="row">
+		    <div class="col">
+					<h3 class="title">{{ game.name }}</h3>
+		    </div>
+		    <div class="col">
+		      <a class="btn btn-primary btn-lg"href="{% url 'games:newentry' slug=game.slug %}">Add to hat</a>
+		    </div>
+		    <div class="col">
+		      <a class="btn btn-warning btn-lg" href="{% url 'games:game' slug=game.slug %}">Join Game!</a>
+		    </div>
+				<div class="col">
+		      <a class="btn btn-danger btn-lg" href="{% url 'games:delete' slug=game.slug %}">Delete Game</a>
+		    </div>
+		  </div>
+			<p></p>
+		{% endfor %}
+	</div>
+{% endblock %}

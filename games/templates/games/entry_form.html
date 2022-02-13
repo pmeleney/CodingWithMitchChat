@@ -1,0 +1,12 @@
+{% extends "games/game_base.html" %}
+
+{% load bootstrap5 %}
+
+{% block game_content %}
+<h4>Add Ideas to the Hat!</h4>
+  <form method="POST" action="" id="EntryForm">
+  	{% csrf_token %}
+  	{% bootstrap_form form %}
+  	<input type="submit" value="Add to Hat!" class="btn btn-primary btn-large">
+  </form>
+{% endblock %}

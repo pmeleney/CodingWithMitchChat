@@ -1,0 +1,335 @@
+{% extends "games/game_base.html"%}
+{% load bootstrap5 %}
+{% load static %}
+{% block pregame %}
+<script src="https://kit.fontawesome.com/75369f95f4.js" crossorigin="anonymous"></script>
+<h1>{{game.name}}</h1>
+<p></p>
+{% endblock %}
+
+{% block game_content %}
+<div class="col-md-8" id="draggable-list-container">
+  <ul class="draggable-list" id="draggable-list" game_slug={{game.slug}}>
+
+  </ul>
+</div>
+<div style="display: none" id="jsonData" data-json="{{ game_entries }}"></div>
+<p></p>
+<div class="row">
+  <div class="col">
+    <p></p>
+  </div>
+  <div class="col">
+    <button onclick="window.location.reload(); sendMessage();" class="btn btn-primary btn-large">Draw New</button>
+  </div>
+</div>
+
+
+{% endblock %}
+
+
+{% block postgame %}
+<script type="text/javascript">
+
+	public_chat_socket = setupPublicChatWebSocket()
+
+  function sendMessage(){
+    console.log('HERE')
+    // Wait until the state of the socket is not ready and send the message when it is...
+    waitForSocketConnection(public_chat_socket, function(){
+        var game_entries = document.getElementById('jsonData').getAttribute("data-json")
+        let data = {
+          "command": "drawNew",
+          "username": "{{user.username}}",
+          "payload": game_entries
+        }
+        public_chat_socket.send(JSON.stringify(data));
+        console.log("message sent!!!", data);
+    });
+}
+
+// Make the function wait until the connection is made...
+function waitForSocketConnection(socket = public_chat_socket, callback){
+    setTimeout(
+        function () {
+            if (socket.readyState === 1) {
+                console.log("Connection is made")
+                if (callback != null){
+                    callback();
+                }
+            } else {
+                console.log("wait for connection...")
+                waitForSocketConnection(socket, callback);
+            }
+
+        }, 5); // wait 5 milisecond for the connection...
+}
+
+  function updateGameEntriesNoMessage(data) {
+    var elem = document.getElementById('draggable-list');
+    elem.parentNode.removeChild(elem);
+    var parent = document.getElementById('draggable-list-container');
+    const unorderedList = document.createElement('ul')
+    unorderedList.id = 'draggable-list'
+    unorderedList.classList.add("draggable-list")
+    parent.appendChild(unorderedList)
+    const listItems = [];
+    const draggable_list = document.getElementById('draggable-list');
+    data = JSON.parse(data)
+    console.log(data)
+
+    data.forEach((line, index) => {
+      console.log(line['fields']['entry']);
+      const listItem = document.createElement('li');
+      listItem.setAttribute('data-index', index);
+      listItem.innerHTML = `
+           <span class="number">${index + 1}</span>
+           <div class="draggable" draggable="true">
+           <p class="person-name">${line.fields.entry}</p>
+           <i class="fas fa-star"></i>
+           </div>
+         `;
+
+         listItems.push(listItem);
+
+         draggable_list.appendChild(listItem);
+       });
+
+    // sample.forEach((person, index) => {
+    //   console.log(person.fields.entry)
+    //   const listItem = document.createElement('li');
+    //
+    //   listItem.setAttribute('data-index', index);
+    //
+    //   listItem.innerHTML = `
+    //     <span class="number">${index + 1}</span>
+    //     <div class="draggable" draggable="true">
+    //       <p class="person-name">${person.fields.entry}</p>
+    //       <i class="fas fa-star"></i>
+    //     </div>
+    //   `;
+    //
+    //   listItems.push(listItem);
+    //
+    //   draggable_list.appendChild(listItem);
+    // });
+
+  }
+
+	function setupPublicChatWebSocket(){
+		// Correctly decide between ws:// and wss://
+		var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+		{% if debug_mode %}
+			var ws_path = ws_scheme + '://' + window.location.host + "/games/game/{{game.slug}}/"; // development
+		{% else %}
+			var ws_path = ws_scheme + '://' + window.location.host + ":8001/games/game/{{game.slug}}/"; // production
+		{% endif %}
+		var public_chat_socket = new WebSocket(ws_path);
+
+		// Handle incoming messages
+		public_chat_socket.onmessage = function(message) {
+			console.log("Got chat websocket message: " + message.data);
+      message = JSON.parse(message.data)
+      if (message.payload.command == 'send' && message.payload.username != "{{user.username}}") {
+        console.log(message)
+        swapItemsNoMessage(message.payload.username, message.payload.swap.fromIndex, message.payload.swap.toIndex)
+      }
+      if (message.payload.command == "drawNew") {
+        console.log('got a message.')
+        console.log(message.payload)
+        updateGameEntriesNoMessage(message.payload.payload)
+      }
+		};
+
+		public_chat_socket.addEventListener("open", function(e){
+			console.log("Public ChatSocket open");
+		})
+
+		public_chat_socket.onclose = function(e) {
+			console.error('Public ChatSocket closed.');
+		};
+
+		public_chat_socket.onOpen = function(e){
+			console.log("Public ChatSocket onOpen", e)
+		}
+
+		public_chat_socket.onerror = function(e){
+	        console.log('Public ChatSocket error', e)
+	    }
+
+	    if (public_chat_socket.readyState == WebSocket.OPEN) {
+	    	console.log("Public ChatSocket OPEN")
+
+	    } else if (public_chat_socket.readyState == WebSocket.CONNECTING){
+	        console.log("Public ChatSocket connecting..")
+	    }
+
+      var gameCode = document.getElementById("draggable-list").getAttribute("game_slug");
+      const draggable_list = document.getElementById('draggable-list');
+      const check = document.getElementById('check');
+
+      function loadJson(selector) {
+        return JSON.parse(document.querySelector(selector).getAttribute('data-json'));
+      }
+
+      var jsonData = loadJson('#jsonData');
+      var data = Object.values(jsonData)
+
+      const richestPeople = data;
+      // Store listitems
+      const listItems = [];
+
+      let dragStartIndex;
+
+      // Insert list items into DOM
+      function createList(data) {
+        let sample = [...richestPeople]
+
+          sample.forEach((person, index) => {
+            console.log(person.fields.entry)
+            const listItem = document.createElement('li');
+
+            listItem.setAttribute('data-index', index);
+
+            listItem.innerHTML = `
+              <span class="number">${index + 1}</span>
+              <div class="draggable" draggable="true">
+                <p class="person-name">${person.fields.entry}</p>
+                <i class="fas fa-star"></i>
+              </div>
+            `;
+
+            listItems.push(listItem);
+
+            draggable_list.appendChild(listItem);
+          });
+
+        addEventListeners();
+      }
+
+      function dragStart() {
+        // console.log('Event: ', 'dragstart');
+        dragStartIndex = +this.closest('li').getAttribute('data-index');
+      }
+
+      function dragEnter() {
+        // console.log('Event: ', 'dragenter');
+        this.classList.add('over');
+      }
+
+      function dragLeave() {
+        // console.log('Event: ', 'dragleave');
+        this.classList.remove('over');
+      }
+
+      function dragOver(e) {
+        // console.log('Event: ', 'dragover');
+        e.preventDefault();
+      }
+
+      function dragDrop() {
+        // console.log('Event: ', 'drop');
+        const dragEndIndex = +this.getAttribute('data-index');
+        swapItems(dragStartIndex, dragEndIndex);
+
+        this.classList.remove('over');
+      }
+
+      // Swap list items that are drag and drop
+      function swapItems(fromIndex, toIndex) {
+        const itemOne = listItems[fromIndex].querySelector('.draggable');
+        const itemTwo = listItems[toIndex].querySelector('.draggable');
+
+        listItems[fromIndex].appendChild(itemTwo);
+        listItems[toIndex].appendChild(itemOne);
+
+
+        // UPDATE OTHER USERS
+        let swap_data = {
+            "command": "send",
+            "username": "{{user.username}}",
+            "swap": {
+                "fromIndex": fromIndex,
+                "toIndex": toIndex
+            }
+        }
+        public_chat_socket.send(JSON.stringify(swap_data))
+        console.log('from SwapItems', swap_data)
+      }
+
+      function swapItemsNoMessage(username, fromIndex, toIndex) {
+        const itemOne = listItems[fromIndex].querySelector('.draggable');
+        const itemTwo = listItems[toIndex].querySelector('.draggable');
+
+        listItems[fromIndex].appendChild(itemTwo);
+        listItems[toIndex].appendChild(itemOne);
+
+      }
+
+
+      function addEventListeners() {
+        const draggables = document.querySelectorAll('.draggable');
+        const dragListItems = document.querySelectorAll('.draggable-list li');
+
+        draggables.forEach(draggable => {
+          draggable.addEventListener('dragstart', dragStart);
+        });
+
+        dragListItems.forEach(item => {
+          item.addEventListener('dragover', dragOver);
+          item.addEventListener('drop', dragDrop);
+          item.addEventListener('dragenter', dragEnter);
+          item.addEventListener('dragleave', dragLeave);
+        });
+      }
+
+      function pick4(fullList, usedItems) {
+        if (fullList.length - usedItems.length < 4){
+          smallList = new Array("ADD MORE TO HAT OR START A NEW GAME.");
+        }
+        else {
+          shuffledList = shuffle(fullList);
+          var smallList = new Array();
+          var i = 0;
+          while (smallList.length < 4) {
+            item = shuffledList[i];
+            if (!usedItems.includes(item)) {
+              usedItems.push(item);
+              smallList.push(item);
+              i++;
+            }
+            else {
+              i++;
+            }
+        }
+        }
+        return [smallList, usedItems];
+      }
+
+      function shuffle(array) {
+        let currentIndex = array.length,  randomIndex;
+
+        // While there remain elements to shuffle...
+        while (currentIndex != 0) {
+
+          // Pick a remaining element...
+          randomIndex = Math.floor(Math.random() * currentIndex);
+          currentIndex--;
+
+          // And swap it with the current element.
+          [array[currentIndex], array[randomIndex]] = [
+            array[randomIndex], array[currentIndex]];
+        }
+
+        return array;
+      }
+
+      createList()
+
+	 return public_chat_socket}
+
+
+
+
+</script>
+{% endblock %}
